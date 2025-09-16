@@ -1,0 +1,9 @@
+langgraph==0.0.52
+langchain-google-genai==0.0.14
+google-generativeai==0.3.2
+pandas==2.2.2
+scikit-learn==1.4.2
+rdkit==2022.9.5
+requests==2.31.0
+streamlit==1.32.0
+python-dotenv==1.0.1
