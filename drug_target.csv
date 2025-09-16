@@ -1,0 +1,8 @@
+drug_name,target_gene,mechanism
+Rapamycin,LRRK2,inhibitor
+Nilotinib,SNCA,inhibitor
+Gefitinib,EGFR,inhibitor
+Erlotinib,EGFR,inhibitor
+Olaparib,BRCA1,inhibitor
+Trametinib,KRAS,inhibitor
+Metformin,TP53,activator

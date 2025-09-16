@@ -1,0 +1,9 @@
+gene_symbol,disease_name,association_score
+LRRK2,Parkinson's disease,0.95
+SNCA,Parkinson's disease,0.89
+PINK1,Parkinson's disease,0.87
+EGFR,Lung cancer,0.97
+KRAS,Lung cancer,0.93
+TP53,Pancreatic cancer,0.99
+BRCA1,Breast cancer,0.98
+APOE,Alzheimer's disease,0.92
