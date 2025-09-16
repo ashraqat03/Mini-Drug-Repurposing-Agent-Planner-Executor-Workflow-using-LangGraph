@@ -1,46 +1,61 @@
 import pandas as pd
-from rdkit import Chem
-from rdkit.Chem import Descriptors
-from rdkit.ML.Descriptors import MoleculeDescriptors
 import numpy as np
 from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import StandardScaler
 import joblib
-
-# Molecular descriptor setup
-descriptor_list = [
-    'MolWt', 'MolLogP', 'NumHDonors', 'NumHAcceptors',
-    'NumRotatableBonds', 'TPSA', 'HeavyAtomCount',
-    'RingCount', 'FractionCSP3'
-]
-calculator = MoleculeDescriptors.MolecularDescriptorCalculator(descriptor_list)
+import re
 
 def compute_descriptors_pro(smiles):
-    mol = Chem.MolFromSmiles(smiles)
-    if mol is None:
+    """
+    Simple descriptor calculation without RDKit.
+    Uses basic string-based features that correlate with molecular properties.
+    """
+    if not smiles or not isinstance(smiles, str):
         return None
-    descriptors = calculator.CalcDescriptors(mol)
-    return np.array(descriptors)
+    
+    try:
+        # Simple features that don't require chemical parsing
+        features = [
+            len(smiles),                    # Rough correlate of molecular size
+            smiles.count('C'),              # Number of carbon atoms (approx)
+            smiles.count('O'),              # Number of oxygen atoms (approx)  
+            smiles.count('N'),              # Number of nitrogen atoms (approx)
+            smiles.count('='),              # Double bonds (approx)
+            smiles.count('#'),              # Triple bonds (approx)
+            smiles.count('1'),              # Ring closures (approx)
+            len(re.findall(r'\[.*?\]', smiles)),  # Complex atoms/groups
+            smiles.count('('),              # Branching (approx)
+        ]
+        return np.array(features)
+    except:
+        return None
 
 def find_targets(disease_name):
+    """Looks up a disease in gene_disease.csv and returns associated targets."""
     try:
         df = pd.read_csv('data/gene_disease.csv')
         results_df = df[df['disease_name'].str.contains(disease_name, case=False, na=False)]
-        return {"targets": results_df.to_dict('records')} if not results_df.empty else {"error": "No targets found"}
+        if results_df.empty:
+            return {"error": f"No targets found for disease: '{disease_name}'."}
+        return {"targets": results_df.sort_values('association_score', ascending=False).to_dict('records')}
     except Exception as e:
         return {"error": f"Failed to read gene-disease data: {str(e)}"}
 
 def find_compounds(target_genes):
+    """Looks up target genes in drug_target.csv and returns associated drugs."""
     try:
         df = pd.read_csv('data/drug_target.csv')
         if isinstance(target_genes, str):
             target_genes = [target_genes]
         results_df = df[df['target_gene'].isin(target_genes)]
-        return {"compounds": results_df.to_dict('records')} if not results_df.empty else {"error": "No compounds found"}
+        if results_df.empty:
+            return {"error": f"No drugs found for target gene(s): {target_genes}."}
+        return {"compounds": results_df.to_dict('records')}
     except Exception as e:
         return {"error": f"Failed to read drug-target data: {str(e)}"}
 
 def predict_activity(smiles_list):
+    """Uses pre-trained QSAR model to predict activity probabilities."""
     try:
         model = joblib.load('models/qsar_model.joblib')
         scaler = joblib.load('models/scaler.joblib')
@@ -56,3 +71,32 @@ def predict_activity(smiles_list):
         return {"predictions": predictions}
     except Exception as e:
         return {"error": f"Prediction failed: {str(e)}"}
+
+# Helper function to train the model with the new descriptors
+def train_simple_model():
+    """Train the model using the new simple descriptors"""
+    df = pd.read_csv('data/compounds.csv')
+    X = []
+    y = []
+    
+    for index, row in df.iterrows():
+        smiles = row['SMILES']
+        label = row['activity_label']
+        desc_vector = compute_descriptors_pro(smiles)
+        if desc_vector is not None:
+            X.append(desc_vector)
+            y.append(label)
+    
+    X = np.array(X)
+    y = np.array(y)
+    
+    scaler = StandardScaler()
+    X_scaled = scaler.fit_transform(X)
+    
+    model = LogisticRegression(random_state=42, class_weight='balanced')
+    model.fit(X_scaled, y)
+    
+    # Save the new model
+    joblib.dump(model, 'models/qsar_model.joblib')
+    joblib.dump(scaler, 'models/scaler.joblib')
+    print(f"✅ Simple model trained on {X.shape[0]} molecules with {X.shape[1]} features")
